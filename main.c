@@ -1,6 +1,10 @@
 #include <ncurses.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#define MAXLEN 4048
+
 WINDOW* chatmenu;
 
 static volatile sig_atomic_t signal_ = 0;
@@ -14,75 +18,54 @@ static void sig_handler(int sig)
 
 
 void chat_Getline(WINDOW * chatbox, char* buff, int y, int x) {
-	
-	int i, temp, tempY, tempX, keytempY; 
-	int j = 0;
-	int c;
-	tempY = (y - y);
-	tempX = (x - x);
-	keytempY = (y - y) + 1;
-	for(i = 0;(c=wgetch(chatbox)) != '\n'; i++) {	
+	int yMax, xMax, csrX, csrY;
+	getmaxyx(chatbox, yMax, xMax);
+	int i, c, j;
+	for(i = 0, c = 0, j = 0; i < MAXLEN-1 && c != EOF && (c=wgetch(chatbox)) != '\n';) {	
 		switch(c) {
-			case KEY_UP:
-				echo();
-				tempY--;
-				if(tempY == 0)
-					tempY++;
-				wmove(chatbox, tempY, tempX);
-				break;
-			case KEY_DOWN:
-				echo();
-				tempY++;
-				if(tempY == (y - 1))
-					tempY--;
-				wmove(chatbox, tempY, tempX);
-				break;
 			case KEY_LEFT:
 				echo();
-				tempX--;
-				if(tempX == 0)
-					tempX++;
-				wmove(chatbox, tempY, tempX);
+				getyx(chatbox, csrY, csrX);
+				wmove(chatbox, csrY, --csrX);
+				if(csrX > 0)
+					j--;
+				
 				break;
 			case KEY_RIGHT:
 				echo();
-			      	tempX++;
-				if(tempX == (x - 1))
-					tempX--;
-			      	wmove(chatbox, tempY, tempX);
-			      	break;
-			case KEY_BACKSPACE:
-				echo();
-				tempX--;
-				wmove(chatbox, tempY, tempX);
+				getyx(chatbox, csrY, csrX);
+				wmove(chatbox, csrY, ++csrX);
+				if(csrX < xMax)
+					j++;
 				break;
-			default:
-				j++;
-				buff[i] = c;
-				temp = j;
+			case KEY_UP:
+				break;
+			case KEY_DOWN:
+				break;
+			case KEY_BACKSPACE:
+					wdelch(chatbox);
+					getyx(chatbox, csrY, csrX);
+					memmove(buff+csrX-1, buff+csrX+1, strlen(buff)-csrX+1);
+					i--;
 				
-				if(temp >= (x - 2)) {
-					keytempY++;
-					wmove(chatbox, keytempY, 1);
-				
-					if(keytempY >= (y-1)) {
-						noecho();
-						keytempY--;
-				       		wmove(chatbox, keytempY, x-2);
-					}
-				       j = 0;
-				}
 			break;
-		}
-		
+			default:
+				getyx(chatbox, csrY, csrX);
+				buff[i++] = c;
+				if(j == xMax-1) {
+					wmove(chatbox, csrY, csrX);
+					noecho();
+				}
+						
+				break;
+					
+		}		
 	}
-	if(buff[i] == '\n') {
-		flushinp();
-		buff[i] = '\n';
-	}
-	buff[i] = '\0';
+	mvwprintw(chatbox,0, 0, buff);
+	wrefresh(chatbox);
+	sleep(5);
 }
-		
+
 	
 void titleMenu(WINDOW * menuwin) {	
 	wattron(menuwin, A_BOLD);
@@ -189,11 +172,11 @@ int main() {
 			getmaxyx(stdscr, yMax, xMax);
 			WINDOW* chatusers = newwin(LINES * .4, COLS * .126, yMax-yMax, xMax-xMax);
 			WINDOW* chatroom = newwin(LINES * .7, COLS * .50, (yMax*.10) , xMax/4);
-			WINDOW* chatbox = newwin(LINES * .125, COLS * .50, yMax * .80, xMax/4);
+			WINDOW* chatbox = newwin(LINES * .05, COLS * .50, yMax * .85, xMax/4);
 			keypad(stdscr, true);
 			box(chatusers, 0, 0);
 			box(chatroom, 0, 0);
-			box(chatbox, 0, 0);
+			//box(chatbox, 0, 0);
 			
 			refresh();
 			wrefresh(chatusers);
